@@ -10,6 +10,7 @@ node {
   def testResultsOut = "results.xml"
   def imageName = "rancher-validation-${JOB_NAME}${env.BUILD_NUMBER}"
   def setupImageName = "rancher-validation-setup-${JOB_NAME}${env.BUILD_NUMBER}"
+  def setupContainer = "${JOB_NAME}${env.BUILD_NUMBER}_setup"
   def deleteContainer = "${JOB_NAME}${env.BUILD_NUMBER}_delete"
   def testsDir = "tests/v3_api/"
 
