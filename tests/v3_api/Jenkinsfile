@@ -1,5 +1,5 @@
 // Job Params
-// Requires: PYTEST_OPTIONS, CATTLE_TEST_URL, ADMIN_TOKEN
+// Requires: PYTEST_OPTIONS
 // Optional: AWS_SSH_PEM_KEY, AWS_SSH_KEY_NAME, DEBUG
 
 node {
@@ -10,6 +10,10 @@ node {
   def testResultsOut = "results.xml"
   def imageName = "rancher-validation-${JOB_NAME}${env.BUILD_NUMBER}"
   def testsDir = "tests/v3_api/"
+
+
+  def envFile = ".env"
+  def rancherConfig = "rancher_env.config"
 
   def branch = "master"
   if ("${env.branch}" != "null" && "${env.branch}" != "") {
@@ -40,8 +44,20 @@ node {
     try {
       stage('Run Validation Tests') {
         try {
-          sh "docker run --name ${testContainer}  --env-file .env " +
-             "${imageName} /bin/bash -c \'pytest -v -s --junit-xml=${testResultsOut} ${PYTEST_OPTIONS} ${testsDir}\'"
+          // deploy rancher server
+          sh "docker run --name ${setupContainer} -t --env-file ${envFile} " +
+             "${imageName} /bin/bash -c \'pytest -v -s --junit-xml=${setupResultsOut} " +
+             "${deployPytestOptions} ${testsDir}\'"
+
+          // copy file containing CATTLE_TEST_URL & ADMIN_TOKEN and load into environment variables
+          sh "docker cp ${setupContainer}:${rootPath}${testsDir}${rancherConfig} ."
+          load rancherConfig
+
+          // run tests
+          sh "docker run --name ${testContainer} -t --env-file ${envFile} " +
+             "${imageName} /bin/bash -c \'export CATTLE_TEST_URL=${env.CATTLE_TEST_URL} " +
+             "&& export ADMIN_TOKEN=${env.ADMIN_TOKEN} && pytest -v -s --junit-xml=${testResultsOut} " +
+             "${PYTEST_OPTIONS} ${testsDir}\'"
         } catch(err) {
           echo 'Test run had failures. Collecting results...'
         }
